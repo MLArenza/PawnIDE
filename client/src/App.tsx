@@ -55,7 +55,6 @@ export default function App() {
   });
   const [preferences, setPreferences] = useState<EditorPreferences>(loadPreferences());
   const [showSettings, setShowSettings] = useState(false);
-  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Open folder using File System Access API
   const handleOpenFolder = async () => {
@@ -155,16 +154,28 @@ export default function App() {
       updated[fileIndex].isDirty = true;
       updated[fileIndex].content = content;
       setOpenFiles(updated);
-
-      // Auto-save after 2 seconds of inactivity
-      if (autoSaveTimerRef.current) {
-        clearTimeout(autoSaveTimerRef.current);
-      }
-      autoSaveTimerRef.current = setTimeout(() => {
-        handleSaveFile(activeFilePath);
-      }, 2000);
     }
   };
+
+  // Save current active file
+  const handleSaveCurrentFile = () => {
+    if (activeFilePath) {
+      handleSaveFile(activeFilePath);
+    }
+  };
+
+  // Handle keyboard shortcut Ctrl+S
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        handleSaveCurrentFile();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeFilePath, openFiles]);
 
   // Handle cursor position changes
   const handleCursorChange = (line: number, column: number) => {
@@ -306,6 +317,15 @@ export default function App() {
           )}
         </div>
         <div className="header-right">
+          {activeFilePath && (
+            <button
+              className="btn-header btn-save"
+              onClick={handleSaveCurrentFile}
+              title="Save (Ctrl+S)"
+            >
+              💾 Save
+            </button>
+          )}
           <button className="btn-header" onClick={() => setShowSettings(true)}>
             ⚙️ Settings
           </button>
@@ -370,7 +390,7 @@ export default function App() {
                     }}
                   >
                     <span className="tab-name">{file.name}</span>
-                    {file.isDirty && <span className="tab-dirty">●</span>}
+                    {file.isDirty && <span className="tab-dirty" title="Unsaved changes">●</span>}
                     <button
                       className="tab-close"
                       onClick={(e) => {
@@ -383,6 +403,18 @@ export default function App() {
                   </div>
                 ))}
               </div>
+
+              {/* Mobile Save Button */}
+              {activeFilePath && (
+                <div className="mobile-save-bar">
+                  <button
+                    className="btn-mobile-save"
+                    onClick={handleSaveCurrentFile}
+                  >
+                    💾 Save
+                  </button>
+                </div>
+              )}
 
               {/* Monaco Editor */}
               <MonacoEditorComponent
